@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bx.bxbms.weekrep.dao.WeekrepMapper">
+	
+	<!--게시물목록 -->
+	<select id="weekrepList" parameterType="weekrepVO" resultType="weekrepVO">
+		SELECT
+			*
+			FROM
+			(SELECT 
+				MM.COM_NM 
+				,MM.USER_NM 
+				,MM.MEM_ID 
+				,MM.USER_ID 
+				,MM.POSITION
+				,MM.MEMB_ST
+				,(select MAX(WEEKREP_ID) from BX_WEEKREP_M where REG_ID = MM.USER_ID and PSTG_BGNG_DT = #{pstgBgngDt} and PSTG_END_DT =#{pstgEndDt}) as WEEKREP_ID
+				,(select ad.ATCH_FILE_ID from BX_WEEKREP_M wm left outer join bx_atch_file_d ad on (wm.WEEKREP_ID = ad.WEEKREP_ID) where wm.REG_ID = MM.USER_ID and wm.PSTG_BGNG_DT = #{pstgBgngDt} and wm.PSTG_END_DT = #{pstgEndDt} and ad.DEL_YN='N') as ATCH_FILE_ID 
+				,(select ad.ATCH_FILE_ORGN_NM from BX_WEEKREP_M wm left outer join bx_atch_file_d ad on (wm.WEEKREP_ID = ad.WEEKREP_ID) where wm.REG_ID = MM.USER_ID and wm.PSTG_BGNG_DT = #{pstgBgngDt} and wm.PSTG_END_DT = #{pstgEndDt} and ad.DEL_YN='N') as ATCH_FILE_ORGN_NM 
+				,(select ad.ATCH_FILE_SIZE from BX_WEEKREP_M wm right outer join bx_atch_file_d ad on (wm.WEEKREP_ID = ad.WEEKREP_ID) where wm.REG_ID = MM.USER_ID and wm.PSTG_BGNG_DT = #{pstgBgngDt} and wm.PSTG_END_DT = #{pstgEndDt} and ad.DEL_YN='N') as ATCH_FILE_SIZE 
+				,(select WEEKREP_CONT from BX_WEEKREP_M where REG_ID = MM.USER_ID and PSTG_BGNG_DT = #{pstgBgngDt} and PSTG_END_DT =#{pstgEndDt}) as WEEKREP_CONT 
+				,(select NEXT_CONT from BX_WEEKREP_M where REG_ID = MM.USER_ID and PSTG_BGNG_DT = #{pstgBgngDt} and PSTG_END_DT =#{pstgEndDt}) as NEXT_CONT 
+				,(select UNIQUENESS from BX_WEEKREP_M where REG_ID = MM.USER_ID and PSTG_BGNG_DT = #{pstgBgngDt} and PSTG_END_DT =#{pstgEndDt}) as UNIQUENESS 
+			FROM BX_MEMB_M MM) A
+			WHERE A.MEMB_ST = 'Y'
+		      <if test="comNm != null and comNm != ''">
+			 	AND A.COM_NM = #{comNm}
+			  </if>
+		      <choose>
+			      <when test="searchType != null and searchType != ''">
+			      	<choose>
+		                <when test="searchType.equals('userNm')">
+		                    AND UPPER(A.USER_NM) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                </when>
+		                <when test="searchType.equals('content')">
+		                    AND UPPER(A.WEEKREP_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                    OR UPPER(A.NEXT_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                    OR UPPER(A.UNIQUENESS) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                </when>
+		                <when test="searchType.equals('all')">
+			                AND UPPER(A.USER_NM) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+			                OR UPPER(A.WEEKREP_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+			                OR UPPER(A.NEXT_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+			                OR UPPER(A.UNIQUENESS) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+					  	</when>
+		             </choose>
+				  </when>
+			  </choose>
+	</select>
+		
+	<!--주간보고 작성 여부 -->
+	<select id="weekSt" parameterType="weekrepVO" resultType="int">
+		 SELECT
+			COUNT(*)
+			FROM
+				BX_WEEKREP_M
+			WHERE
+				REG_ID = #{userId} 
+				AND PSTG_BGNG_DT = #{pstgBgngDt}
+				AND PSTG_END_DT = #{pstgEndDt}
+	</select>
+	
+	<!-- 주간보고 등록 -->
+		<insert id="insertWeekrep" parameterType="weekrepVO">
+			INSERT INTO BX_WEEKREP_M(
+			 WEEKREP_CONT
+			, NEXT_CONT
+			, UNIQUENESS
+			, REG_ID
+			, PSTG_BGNG_DT
+			, PSTG_END_DT
+			, DEL_YN
+			)VALUES(
+			  #{weekrepCont}
+			, #{nextCont}
+			, #{uniqueness}
+			, #{userId}
+			, #{pstgBgngDt}
+			, #{pstgEndDt}
+			, 'N'
+			)
+	</insert>
+	
+	<!-- 주간보고 수정 --> 
+	<update id="updateWeekrep" parameterType="weekrepVO">
+		UPDATE BX_WEEKREP_M 
+		  SET
+		    WEEKREP_CONT  = #{weekrepCont}  
+		   ,NEXT_CONT = #{nextCont}   
+		   ,UNIQUENESS = #{uniqueness}  
+		   ,MDFCN_ID = #{userId}  
+		   ,MDFCN_DT = #{mdfcnDt}  
+		  WHERE WEEKREP_ID = #{weekrepId}
+	</update>
+	
+	<!-- 주간보고 파일 등록 -->
+	<insert id="insertWeekrepFile" parameterType="weekrepVO">
+			INSERT INTO BX_ATCH_FILE_D(
+			  WEEKREP_ID
+			, ATCH_FILE_ORGN_NM
+			, ATCH_FILE_STRG_NM
+			, ATCH_FILE_STRG_PATH
+			, ATCH_FILE_SIZE
+			, ATCH_FILE_EXT_NM
+			, REG_DT
+			, DEL_YN
+			)VALUES(
+			  #{weekrepId}
+			, #{atchFileOrgnNm}
+			, #{atchFileStrgNm}
+			, #{atchFileStrgPath}
+			, #{atchFileSize}
+			, #{atchFileExtNm}
+			, #{regDt}
+			, 'N'
+			)
+	</insert>
+	<!-- 주간보고 파일 수정 --> 
+	<update id="modifyWeekrepFile" parameterType="weekrepVO">
+		UPDATE BX_ATCH_FILE_D 
+		  SET
+		   ATCH_FILE_ORGN_NM = #{atchFileOrgnNm} 
+		   ,ATCH_FILE_STRG_NM = #{atchFileStrgNm}   
+		   ,ATCH_FILE_STRG_PATH = #{atchFileStrgPath}   
+		   ,ATCH_FILE_SIZE = #{atchFileSize}   
+		   ,ATCH_FILE_EXT_NM = #{atchFileExtNm}   
+		   ,MDFCN_DT = #{mdfcnDt}   
+		   ,DEL_YN = 'N'
+		  WHERE WEEKREP_ID = #{weekrepId}
+	</update>
+	<!-- 첨부파일 정보 -->
+	<select id="selectAtchFile" parameterType="int" resultType="weekrepVO" >
+		SELECT
+			 ATCH_FILE_ID
+		    ,ATCH_FILE_ORGN_NM
+		    ,ATCH_FILE_STRG_NM  
+		    ,ATCH_FILE_STRG_PATH
+		    FROM BX_ATCH_FILE_D 
+		    WHERE ATCH_FILE_ID = #{atchFileId}
+	</select>
+	
+	<!-- 주간보고 댓글 등록 -->
+	<insert id="insertReply" parameterType="weekrepVO">
+		INSERT INTO BX_REP_M(
+		  REG_ID
+		, REG_DT
+		, WEEKREP_ID
+		, REP_CONT
+		, DEL_YN
+		)VALUES(
+		  #{regId}
+		, #{regDt}
+		, #{weekrepId}
+		, #{repCont}
+		, 'N'
+		)
+	</insert>
+	<select id="replyList" parameterType="string" resultType="weekrepVO" >
+		SELECT
+			REP_ID
+		   , REG_ID
+		   , REG_DT
+		   , MDFCN_DT
+		   , REP_CONT
+			FROM BX_REP_M
+			WHERE WEEKREP_ID = #{weekrepId} 
+			  AND DEL_YN = 'N'
+	</select>
+	<select id="repDetail" parameterType="string" resultType="weekrepVO" >
+		SELECT
+		    WEEKREP_ID
+		   , REG_ID
+		   , WEEKREP_CONT
+		   , NEXT_CONT
+		   , UNIQUENESS
+			FROM BX_WEEKREP_M
+			WHERE WEEKREP_ID =  #{weekrepId}
+			  AND DEL_YN = 'N'
+	</select>
+	<!-- 주간보고 수정 --> 
+	<update id="modifyReply" parameterType="weekrepVO">
+		UPDATE BX_REP_M 
+		  SET
+		   REP_CONT = #{repCont} 
+		   ,MDFCN_DT = #{mdfcnDt}   
+		  WHERE REP_ID = #{repId}
+	</update>
+	<!-- 주간보고 수정 --> 
+	<update id="repDelete" parameterType="weekrepVO">
+		UPDATE BX_REP_M 
+		  SET
+		    DEL_YN = 'Y'
+		   ,MDFCN_DT = #{mdfcnDt}   
+		  WHERE REP_ID = #{repId}
+	</update>
+	<!-- 파일 삭제 --> 
+	<update id="fileDelete" parameterType="weekrepVO">
+		UPDATE BX_ATCH_FILE_D 
+		  SET
+		    DEL_YN = 'Y'
+		   , MDFCN_DT = #{mdfcnDt}  
+		  WHERE ATCH_FILE_ID = #{atchFileId}
+	</update>
+	<!--주간보고  파일 여부 -->
+	<select id="weekFileSt" parameterType="String" resultType="int">
+		 SELECT
+			COUNT(*)
+			FROM
+				BX_ATCH_FILE_D
+			WHERE
+				WEEKREP_ID = #{weekrepId}
+	</select>
+</mapper>

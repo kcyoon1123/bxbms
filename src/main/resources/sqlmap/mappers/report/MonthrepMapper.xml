@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bx.bxbms.monthrep.dao.MonthrepMapper">
+	<!--월간보고목록 -->
+	<select id="monthrepList" parameterType="monthrepVO" resultType="monthrepVO">
+		SELECT
+			*
+			FROM
+			(SELECT 
+				MM.COM_NM 
+				,MM.USER_NM 
+				,MM.USER_ID 
+				,MM.POSITION
+				,MM.MEMB_ST
+				,(select MONTHREP_ID from BX_MONTHREP_M where USER_ID = MM.USER_ID and REP_DATE = #{repDate}) as MONTHREP_ID
+				,(select GOAL_CONT from BX_MONTHREP_M where USER_ID = MM.USER_ID and REP_DATE = #{repDate}) as GOAL_CONT
+				,(select PREMON_CONT from BX_MONTHREP_M where USER_ID = MM.USER_ID and REP_DATE = #{repDate}) as PREMON_CONT
+				,(select MONTH_CONT from BX_MONTHREP_M where USER_ID = MM.USER_ID and REP_DATE = #{repDate}) as MONTH_CONT
+				,(select UNIQUE_CONT from BX_MONTHREP_M where USER_ID = MM.USER_ID and REP_DATE = #{repDate}) as UNIQUE_CONT
+			FROM BX_MEMB_M MM) A
+			WHERE A.MEMB_ST = 'Y'
+				<if test="comNm != null and comNm != ''">
+				 	AND A.COM_NM = #{comNm}
+				  </if>
+			      <choose>
+			      <when test="searchType != null and searchType != ''">
+			      	<choose>
+		                <when test="searchType.equals('userNm')">
+		                    AND UPPER(A.USER_NM) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                </when>
+		                <when test="searchType.equals('content')">
+		                    AND UPPER(A.GOAL_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                    OR UPPER(A.PREMON_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                    OR UPPER(A.MONTH_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                    OR UPPER(A.UNIQUE_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                </when>
+		                <when test="searchType.equals('all')">
+			                AND UPPER(A.USER_NM) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+			                OR UPPER(A.GOAL_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                    OR UPPER(A.PREMON_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                    OR UPPER(A.MONTH_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+		                    OR UPPER(A.UNIQUE_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+					  	</when>
+		             </choose>
+				  </when>
+			  </choose>
+			</select>
+		<!-- 월간보고 등록 -->
+		<insert id="insertMonthrep" parameterType="monthrepVO">
+			INSERT INTO BX_MONTHREP_M(
+			  MONTHREP_ID
+			, GOAL_CONT
+			, PREMON_CONT
+			, MONTH_CONT 
+			, REG_DT 
+			, UNIQUE_CONT 
+			, USER_ID 
+			, REP_DATE 
+			)VALUES(
+			   #{monthrepId}
+			  , #{goalCont}
+			  , #{premonCont}
+			  , #{monthCont}
+			  , #{regDt}
+			  , #{uniqueCont}
+			  , #{userId}
+			  , #{repDate}
+			)
+		</insert>
+		
+		<!-- 월간보고 수정 --> 
+	<update id="updateMonthrep" parameterType="monthrepVO">
+		UPDATE BX_MONTHREP_M 
+		  SET
+		    GOAL_CONT  = #{goalCont}  
+		   ,PREMON_CONT = #{premonCont}   
+		   ,MONTH_CONT = #{monthCont}  
+		   ,UNIQUE_CONT = #{uniqueCont}  
+		   ,MDFCN_DT = #{mdfcnDt}  
+		  WHERE MONTHREP_ID = #{monthrepId}
+	</update>
+	
+	<!-- 월간보고 파일 등록 -->
+	<insert id="insertMonthrepFile" parameterType="monthrepVO">
+			INSERT INTO BX_ATCH_FILE_D(
+			  MONTHREP_ID
+			, ATCH_FILE_ORGN_NM
+			, ATCH_FILE_STRG_NM
+			, ATCH_FILE_STRG_PATH
+			, ATCH_FILE_SIZE
+			, ATCH_FILE_EXT_NM
+			, REG_DT
+			, DEL_YN
+			)VALUES(
+			  #{monthrepId}
+			, #{atchFileOrgnNm}
+			, #{atchFileStrgNm}
+			, #{atchFileStrgPath}
+			, #{atchFileSize}
+			, #{atchFileExtNm}
+			, #{regDt}
+			, 'N'
+			)
+	</insert>
+	
+	<!-- 월간보고  파일 여부 -->
+	<select id="monthFileSt" parameterType="String" resultType="int">
+		 SELECT
+			COUNT(*)
+			FROM
+				BX_ATCH_FILE_D
+			WHERE
+				MONTHREP_ID = #{monthrepId}
+	</select>
+	
+	<!-- 월간보고 파일 수정 --> 
+	<update id="modifyMonthrepFile" parameterType="monthrepVO">
+		UPDATE BX_ATCH_FILE_D 
+		  SET
+		   ATCH_FILE_ORGN_NM = #{atchFileOrgnNm} 
+		   ,ATCH_FILE_STRG_NM = #{atchFileStrgNm}   
+		   ,ATCH_FILE_STRG_PATH = #{atchFileStrgPath}   
+		   ,ATCH_FILE_SIZE = #{atchFileSize}   
+		   ,ATCH_FILE_EXT_NM = #{atchFileExtNm}   
+		   ,MDFCN_DT = #{mdfcnDt}   
+		   ,DEL_YN = 'N'
+		  WHERE MONTHREP_ID = #{monthrepId}
+	</update>
+	<!-- 첨부파일 삭제 -->
+	<delete id="deleteMonthFile" parameterType="monthrepVO">
+			DELETE 
+				FROM BX_ATCH_FILE_D 
+			WHERE 
+			   MONTHREP_ID = #{monthrepId}
+	</delete>
+	<!-- 월간보고  파일 여부 -->
+	<select id="monthFileList" parameterType="String" resultType="monthrepVO">
+		 SELECT
+			ATCH_FILE_ID
+			, ATCH_FILE_ORGN_NM
+			, ATCH_FILE_SIZE
+			FROM
+				BX_ATCH_FILE_D
+			WHERE
+				MONTHREP_ID = #{monthrepId}
+	</select>
+	
+	<!-- 첨부파일 정보 -->
+	<select id="selectAtchFile" parameterType="int" resultType="weekrepVO" >
+		SELECT
+			 ATCH_FILE_ID
+		    ,ATCH_FILE_ORGN_NM
+		    ,ATCH_FILE_STRG_NM  
+		    ,ATCH_FILE_STRG_PATH
+		    FROM BX_ATCH_FILE_D 
+		    WHERE ATCH_FILE_ID = #{atchFileId}
+	</select>
+	
+</mapper>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bx.bxbms.dayrep.dao.DayrepMapper">
+	<!--일간보고목록 -->
+	<select id="dayrepList" parameterType="dayrepVO" resultType="dayrepVO">
+		SELECT
+			*
+			FROM
+			(SELECT 
+				MM.COM_NM 
+				,MM.USER_NM 
+				,MM.USER_ID 
+				,MM.POSITION
+				,MM.MEMB_ST
+				,(select DAYREP_ID from bx_dayrep_m where MEM_ID = MM.USER_ID and REP_DATE = #{repDate}) as DAYREP_ID
+				,(select DAYREP_CONT from bx_dayrep_m where MEM_ID = MM.USER_ID and REP_DATE = #{repDate}) as DAYREP_CONT
+				,(select REG_DT from bx_dayrep_m where MEM_ID = MM.USER_ID and REP_DATE = #{repDate}) as REG_DT
+				,(select MDFCN_DT from bx_dayrep_m where MEM_ID = MM.USER_ID and REP_DATE = #{repDate}) as MDFCN_DT
+			FROM BX_MEMB_M MM) A
+			WHERE A.MEMB_ST = 'Y'
+				<if test="comNm != null and comNm != ''">
+				 	AND A.COM_NM = #{comNm}
+				  </if>
+			      <choose>
+				      <when test="searchKeyword != null and searchKeyword != ''">
+				      	<choose>
+			                <when test="searchType.equals('userNm')">
+			                    AND UPPER(A.USER_NM) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+			                </when>
+			                <when test="searchType.equals('content')">
+			                    AND UPPER(A.DAYREP_CONT) LIKE CONCAT('%',UPPER(#{searchKeyword}),'%')
+			                </when>
+			             </choose>
+					  </when>
+				  </choose>	
+		</select>
+	
+		<!-- 일간보고 등록 -->
+		<insert id="insertDayrep" parameterType="dayrepVO">
+			INSERT INTO BX_DAYREP_M(
+			  DAYREP_CONT
+			, REG_DT
+			, MEM_ID
+			, REP_DATE 
+			)VALUES(
+			  #{dayrepCont}
+			, #{regDt}
+			, #{userId}
+			, #{repDate}
+			)
+		</insert>
+	
+		<!-- 주간보고 수정 --> 
+		<update id="updateDayrep" parameterType="dayrepVO">
+			UPDATE BX_DAYREP_M 
+			  SET
+			    DAYREP_CONT  = #{dayrepCont}  
+			  , MDFCN_DT = #{mdfcnDt}  
+			  WHERE DAYREP_ID = #{dayrepId}
+			  	and MEM_ID = #{userId}
+		</update>
+	
+</mapper>
